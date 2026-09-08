@@ -241,6 +241,8 @@ export interface VideoWinner {
   hazard_score?: number;
   // Accident/Pothole-specific
   detections?: number;
+  gps?: { lat: number; lng: number };
+  incident_id?: string;
 }
 
 export interface VehicleSummary {
@@ -268,9 +270,12 @@ export interface VideoJobStatus {
   filename: string;
 }
 
-export async function uploadVideo(file: File): Promise<{ job_id: string; status: string; message: string }> {
+export async function uploadVideo(file: File, busId?: string): Promise<{ job_id: string; status: string; message: string }> {
   const formData = new FormData();
   formData.append("file", file);
+  if (busId) {
+    formData.append("bus_id", busId);
+  }
 
   const baseUrl = getApiBaseUrl();
   const response = await fetch(`${baseUrl}/detect/video/upload`, {

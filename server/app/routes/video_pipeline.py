@@ -43,6 +43,9 @@ from fastapi.responses import StreamingResponse
 # pyrefly: ignore [missing-import]
 from PIL import Image
 
+from app.database.session import SessionLocal
+from app.database.models import BusModel, IncidentModel
+
 router = APIRouter(prefix="/detect", tags=["video-pipeline"])
 
 # ── In-memory job store (auto-expires after 30 min) ──
@@ -179,8 +182,12 @@ def _infer_accident(model, frame_bgr: np.ndarray) -> Dict[str, Any]:
         cls_id = int(box.cls[0].item())
         conf = float(box.conf[0].item())
         cls_name = result.names.get(cls_id, "")
-        if "roboflow" in cls_name.lower() or "collaborate" in cls_name.lower():
+        
+        # Stricter class filtering (must match accident classes)
+        valid_accident_classes = set(ACCIDENT_CLASS_NAMES.values())
+        if cls_name not in valid_accident_classes and "crash" not in cls_name.lower() and "collision" not in cls_name.lower():
             continue
+            
         crash_detected = True
         det_count += 1
         if conf > max_conf:
@@ -358,6 +365,63 @@ def _divide_frames(total: int) -> Dict[str, List[int]]:
 #  BACKGROUND PROCESSING TASK
 # ═══════════════════════════════════════════════════════════
 
+def _save_incident_from_winner(job_id: str, bus_id: str, bus_gps: dict, winner_data: dict) -> str:
+    """Save the detected winner as a real incident in the DB and broadcast via websocket."""
+    incident_id = f"INC-{uuid.uuid4().hex[:8].upper()}"
+    db = SessionLocal()
+    try:
+        new_inc = IncidentModel(
+            id=incident_id,
+            bus_id=bus_id or "BUS-HYD-VID",
+            event_type=winner_data["model"],
+            confidence=winner_data["confidence"],
+            severity=winner_data.get("severity", "medium"),
+            lat=bus_gps["lat"],
+            lng=bus_gps["lng"],
+            timestamp=datetime.utcnow(),
+            camera="front",
+            image_url=winner_data.get("annotated_image_url"),
+            video_url=None,
+            model="video-pipeline",
+            status="detected",
+            notes=f"Detected via Video Pipeline Simulator Job {job_id}",
+            metadata_json=None
+        )
+        db.add(new_inc)
+        db.commit()
+        db.refresh(new_inc)
+        
+        # Broadcast via websocket
+        from app.websocket.manager import manager
+        async def _broadcast():
+            await manager.broadcast("incident_created", {
+                "id": new_inc.id,
+                "bus_id": new_inc.bus_id,
+                "event_type": new_inc.event_type,
+                "confidence": new_inc.confidence,
+                "severity": new_inc.severity,
+                "gps": {"lat": new_inc.lat, "lng": new_inc.lng},
+                "timestamp": new_inc.timestamp.isoformat(),
+                "camera": new_inc.camera,
+                "image_url": new_inc.image_url,
+                "video_url": new_inc.video_url,
+                "model": new_inc.model,
+                "status": new_inc.status,
+                "notes": new_inc.notes,
+            })
+            
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.run_coroutine_threadsafe(_broadcast(), loop)
+        except Exception:
+            pass
+            
+        return incident_id
+    finally:
+        db.close()
+
+
 def _run_pipeline(job_id: str, video_path: str):
     """
     Synchronous pipeline function run inside a thread via asyncio.to_thread.
@@ -379,6 +443,17 @@ def _run_pipeline(job_id: str, video_path: str):
     os.makedirs(media_dir, exist_ok=True)
 
     try:
+        # Fetch actual GPS from DB based on bus_id
+        bus_gps = {"lat": 17.4422, "lng": 78.3923} # default fallback
+        db = SessionLocal()
+        try:
+            if job.get("bus_id"):
+                bus = db.query(BusModel).filter(BusModel.id == job["bus_id"]).first()
+                if bus:
+                    bus_gps = {"lat": bus.lat, "lng": bus.lng}
+        finally:
+            db.close()
+
         # ── Phase 1: Extract frames ──
         job["phase"] = "extracting_frames"
         frames = _extract_frames(video_path)
@@ -422,6 +497,13 @@ def _run_pipeline(job_id: str, video_path: str):
             cv2.imwrite(str(media_dir / fname), best_wl["annotated_frame"])
             best_wl.pop("annotated_frame", None)
             best_wl["annotated_image_url"] = f"http://localhost:8000/media/{fname}"
+            
+            # GPS for the video upload tester
+            best_wl["gps"] = bus_gps
+            
+            # Save incident to database for map/dashboard tracking
+            best_wl["incident_id"] = _save_incident_from_winner(job_id, job.get("bus_id"), bus_gps, best_wl)
+            
             winner = best_wl
             job["winner"] = winner
             job["phase"] = "winner_found"
@@ -432,22 +514,44 @@ def _run_pipeline(job_id: str, video_path: str):
             job["current_model"] = "accident"
             ac_model = _load_accident_model()
             best_ac = None
+            
+            # Temporal tracking across sampled frames
+            ac_history = []
 
             for idx in division["accident"]:
                 res = _infer_accident(ac_model, frames[idx])
                 processed += 1
                 job["processed_frames"] = processed
+                
+                conf = res.get("confidence", 0.0)
+                ac_history.append(conf)
 
-                if res["detected"] and res["confidence"] >= CONFIDENCE_THRESHOLD:
-                    if best_ac is None or res["confidence"] > best_ac["confidence"]:
+                if res["detected"] and conf >= CONFIDENCE_THRESHOLD:
+                    if best_ac is None or conf > best_ac["confidence"]:
                         best_ac = {**res, "frame_index": idx}
-
-            if best_ac is not None:
+            
+            # Temporal Gating: Need at least 2 strong frames (since we are sampling 33%, a 5s video might only give us 3 frames)
+            high_conf_frames = sum(1 for c in ac_history if c >= 0.70)
+            avg_conf = sum(ac_history) / len(ac_history) if ac_history else 0.0
+            
+            if best_ac is not None and (high_conf_frames >= 2 or (len(ac_history) <= 3 and high_conf_frames >= 1)) and avg_conf >= 0.40:
                 ts = int(time.time())
                 fname = f"video_winner_ac_{ts}.jpg"
-                cv2.imwrite(str(media_dir / fname), best_ac["annotated_frame"])
+                if "annotated_frame" in best_ac and best_ac["annotated_frame"] is not None:
+                    cv2.imwrite(str(media_dir / fname), best_ac["annotated_frame"])
                 best_ac.pop("annotated_frame", None)
                 best_ac["annotated_image_url"] = f"http://localhost:8000/media/{fname}"
+                
+                # Update confidence to reflect temporal reality
+                fused_conf = (best_ac["confidence"] * 0.6) + (avg_conf * 0.4)
+                best_ac["confidence"] = min(0.99, fused_conf)
+                
+                # GPS for the video upload tester
+                best_ac["gps"] = bus_gps
+                
+                # Save incident to database for map/dashboard tracking
+                best_ac["incident_id"] = _save_incident_from_winner(job_id, job.get("bus_id"), bus_gps, best_ac)
+                
                 winner = best_ac
                 job["winner"] = winner
                 job["phase"] = "winner_found"
@@ -474,6 +578,13 @@ def _run_pipeline(job_id: str, video_path: str):
                     cv2.imwrite(str(media_dir / fname), best_ph["annotated_frame"])
                     best_ph.pop("annotated_frame", None)
                     best_ph["annotated_image_url"] = f"http://localhost:8000/media/{fname}"
+                    
+                    # GPS for the video upload tester
+                    best_ph["gps"] = bus_gps
+                    
+                    # Save incident to database for map/dashboard tracking
+                    best_ph["incident_id"] = _save_incident_from_winner(job_id, job.get("bus_id"), bus_gps, best_ph)
+                    
                     winner = best_ph
                     job["winner"] = winner
                     job["phase"] = "winner_found"

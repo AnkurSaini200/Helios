@@ -1,6 +1,7 @@
 import io
 import glob
 import os
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -24,6 +25,8 @@ class JetsonAccidentDetector:
         self.model_name = "YOLOv8n-Accident-EdgeNet"
         self.last_speed_kmh: Optional[float] = None
         self.target_class_name = ACCIDENT_CLASS_NAME
+        self.accident_history = deque(maxlen=15)
+        self.accident_confirmed = False
 
         # Resolve weights path
         if not weights_path:
@@ -94,38 +97,58 @@ class JetsonAccidentDetector:
                 cls_name = names.get(cls_id, "")
                 conf = float(box.conf[0].item())
 
-                # All detection classes in this dedicated accident model represent crash detections
-                crash_boxes_count += 1
-                if conf > raw_confidence:
-                    raw_confidence = conf
+                # Strict class filtering
+                cls_name_lower = cls_name.lower()
+                if cls_name == self.target_class_name or "crash" in cls_name_lower or "collision" in cls_name_lower:
+                    crash_boxes_count += 1
+                    if conf > raw_confidence:
+                        raw_confidence = conf
 
-        confidence = raw_confidence
         self.last_raw_confidence = raw_confidence
         self.last_results = results
         self.last_boxes_count = detected_boxes_count
         self.last_crash_boxes_count = crash_boxes_count
 
-        # Deceleration signal fusion:
-        # If speed_kmh drops >= 25 km/h since last frame AND detection confidence > 0.4,
-        # boost confidence by 0.2 (capped at 1.0)
+        # Temporal Verification
+        self.accident_history.append(raw_confidence)
+        high_conf_frames = sum(c >= 0.70 for c in self.accident_history)
+        temporal_confidence = (
+            sum(self.accident_history) / len(self.accident_history)
+            if self.accident_history
+            else 0.0
+        )
+
+        # Telemetry fusion as supporting evidence (NOT a direct raw boost)
+        telemetry_score = 0.0
         if speed_kmh is not None and self.last_speed_kmh is not None:
             speed_drop = self.last_speed_kmh - speed_kmh
-            if speed_drop >= 25.0 and raw_confidence > 0.4:
-                confidence = min(1.0, confidence + 0.2)
-                print(f"[JetsonAccidentDetector] Deceleration boost triggered: speed dropped {speed_drop:.1f} km/h, confidence boosted from {raw_confidence:.2f} to {confidence:.2f}")
+            if speed_drop >= 25.0:
+                telemetry_score = 1.0  # Strong deceleration evidence
+                print(f"[JetsonAccidentDetector] Strong deceleration detected: {speed_drop:.1f} km/h drop")
 
         # Update last speed
         if speed_kmh is not None:
             self.last_speed_kmh = speed_kmh
 
-        # Threshold gate: Only emit payload when confidence crosses 0.75
-        if confidence < 0.75:
+        # Temporal gating (fail early if not sustained)
+        if len(self.accident_history) < 8:
+            return None
+        
+        # We need at least 5 strong visual frames in our window
+        if high_conf_frames < 5:
             return None
 
-        # Calculate severity based on confidence
-        if confidence >= 0.90:
+        # Calculate final fused confidence score (Visual 60%, Temporal 30%, Telemetry 10%)
+        final_confidence = (raw_confidence * 0.60) + (temporal_confidence * 0.30) + (telemetry_score * 0.10)
+
+        # Threshold gate: Only emit payload when fused confidence is high enough
+        if final_confidence < 0.70:
+            return None
+
+        # Calculate severity based on final confidence and speed drop
+        if final_confidence >= 0.88 or telemetry_score > 0:
             severity = "critical"
-        elif confidence >= 0.80:
+        elif final_confidence >= 0.78:
             severity = "high"
         else:
             severity = "medium"
@@ -154,7 +177,7 @@ class JetsonAccidentDetector:
         payload = {
             "bus_id": self.bus_id,
             "event_type": "accident",
-            "confidence": round(float(confidence), 4),
+            "confidence": round(float(final_confidence), 4),
             "severity": severity,
             "gps": {"lat": lat, "lng": lng},
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -163,7 +186,7 @@ class JetsonAccidentDetector:
             "video_url": None,
             "model": self.model_name,
             "status": "detected",
-            "notes": f"Accident detected by edge model with confidence {confidence:.2f}"
+            "notes": f"Accident detected: Visual {raw_confidence:.1%}, Temporal {temporal_confidence:.1%}, Fused {final_confidence:.1%}"
         }
 
         return payload

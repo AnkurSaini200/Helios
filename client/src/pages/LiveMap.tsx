@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
 MapContainer,
 Marker,
@@ -105,13 +105,22 @@ popupAnchor: [0, -18],
 
 export const LiveMap: React.FC = () => {
 const navigate = useNavigate();
+const [searchParams] = useSearchParams();
 const { subscribe } = useHeliosWebSocket();
 
 const [buses, setBuses] = useState<Bus[]>([]);
 const [incidents, setIncidents] = useState<Incident[]>([]);
 const [selectedFilter, setSelectedFilter] = useState<string>("all");
-const [mapCenter, setMapCenter] = useState<[number, number]>([17.4412, 78.3921]);
-const [mapZoom, setMapZoom] = useState<number>(13);
+
+const queryLat = searchParams.get("lat");
+const queryLng = searchParams.get("lng");
+const queryHighlight = searchParams.get("highlight");
+
+const initialLat = queryLat ? parseFloat(queryLat) : 17.4412;
+const initialLng = queryLng ? parseFloat(queryLng) : 78.3921;
+
+const [mapCenter, setMapCenter] = useState<[number, number]>([initialLat, initialLng]);
+const [mapZoom, setMapZoom] = useState<number>(queryHighlight ? 16 : 13);
 const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
 useEffect(() => {
@@ -347,11 +356,11 @@ Map Layers & Filters: </span> </div>
               </div>
 
               {inc.image_url && (
-                <div className="mb-2 rounded overflow-hidden h-24 bg-black">
+                <div className="mb-2 rounded overflow-hidden bg-black max-h-48 flex items-center justify-center">
                   <img
                     src={inc.image_url}
                     alt="Detection"
-                    className="w-full h-full object-cover"
+                    className="w-full max-h-48 object-contain"
                   />
                 </div>
               )}
@@ -379,6 +388,89 @@ Map Layers & Filters: </span> </div>
           </Popup>
         </Marker>
       ))}
+
+      {/* Render Highlight Marker from Video Pipeline */}
+      {queryHighlight && queryLat && queryLng && (
+        <Marker
+          position={[parseFloat(queryLat), parseFloat(queryLng)]}
+          icon={L.divIcon({
+            className: "bg-transparent",
+            html: `
+              <div class="relative group cursor-pointer w-12 h-12 flex items-center justify-center">
+                <div class="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-50"></div>
+                <div class="relative w-8 h-8 rounded-full shadow-lg border-2 bg-indigo-500 border-white text-white flex items-center justify-center shadow-indigo-500/50">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-video"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+                </div>
+              </div>
+            `,
+            iconSize: [48, 48],
+            iconAnchor: [24, 24],
+            popupAnchor: [0, -24],
+          })}
+          zIndexOffset={1000}
+        >
+          <Popup className="helios-popup">
+            <div className="font-mono text-sm min-w-[220px]">
+              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-indigo-500/20">
+                <div className="p-1.5 rounded-md bg-indigo-500/20">
+                  <span className="text-indigo-400 font-bold">LIVE ANALYSIS</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-white uppercase truncate">Video Pipeline Result</span>
+                </div>
+              </div>
+              
+              {(() => {
+                const highlightedIncident = incidents.find(inc => inc.id === queryHighlight);
+                if (highlightedIncident) {
+                  return (
+                    <div className="text-xs font-sans">
+                      {highlightedIncident.image_url && (
+                        <div className="mb-2 rounded overflow-hidden bg-black max-h-48 flex items-center justify-center">
+                          <img
+                            src={highlightedIncident.image_url}
+                            alt="Detection"
+                            className="w-full max-h-48 object-contain"
+                          />
+                        </div>
+                      )}
+                      <div className="space-y-1 font-mono text-[11px] text-slate-300">
+                        <div>Bus Source: <span className="font-bold text-white">{highlightedIncident.bus_id}</span></div>
+                        <div>Confidence: <span className="text-solar-400 font-bold">{Math.round(highlightedIncident.confidence * 100)}%</span></div>
+                        <div>Severity: <span className={`font-bold uppercase ${highlightedIncident.severity === 'critical' ? 'text-red-400' : highlightedIncident.severity === 'high' ? 'text-orange-400' : 'text-amber-400'}`}>{highlightedIncident.severity}</span></div>
+                        <div>Time: <span className="text-slate-400">{new Date(highlightedIncident.timestamp).toLocaleTimeString()}</span></div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (highlightedIncident.event_type === "accident") {
+                            navigate("/accidents");
+                          } else {
+                            navigate(`/incidents?search=${highlightedIncident.id}`);
+                          }
+                        }}
+                        className="w-full mt-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-100 font-mono font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer border border-slate-700"
+                      >
+                        View Incident Details <ExternalLink className="w-3 h-3 text-solar-400" />
+                      </button>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <>
+                    <div className="text-xs text-slate-400">Job ID: {queryHighlight}</div>
+                    <div className="mt-2 pt-2 border-t border-slate-700 text-[10px] text-slate-500 flex justify-between">
+                      <span>{parseFloat(queryLat).toFixed(4)}, {parseFloat(queryLng).toFixed(4)}</span>
+                      <span>Edge AI Test</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </Popup>
+        </Marker>
+      )}
     </MapContainer>
 
     {/* Map Legend Overlay in Corner */}
