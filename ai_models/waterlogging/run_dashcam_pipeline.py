@@ -15,7 +15,7 @@ import numpy as np
 from ultralytics import YOLO
 
 # ======================= CONFIGURATION =======================
-PHONE_IP = "10.2.43.57"
+PHONE_IP = "10.2.5.75"
 PHONE_PORT = "8080"
 STREAM_URL = f"http://{PHONE_IP}:{PHONE_PORT}/video"
 SENSORS_URL = f"http://{PHONE_IP}:{PHONE_PORT}/sensors.json"
