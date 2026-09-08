@@ -55,10 +55,10 @@ DEFAULT_CONFIDENCE_THRESHOLD = 0.50
 ACCIDENT_CONFIDENCE_THRESHOLD = 0.60
 
 # Pothole threshold
-POTHOLE_CONFIDENCE_THRESHOLD = 0.55
+POTHOLE_CONFIDENCE_THRESHOLD = 0.60
 
 # Waterlogging threshold
-WATERLOG_CONFIDENCE_THRESHOLD = 0.55
+WATERLOG_CONFIDENCE_THRESHOLD = 0.60
 
 # Number of recent frames used for temporal confirmation.
 TEMPORAL_WINDOW = 5
@@ -685,7 +685,7 @@ def draw_detector_boxes(
 
     detections = result.get(
         "detections",
-        []
+        result.get("raw", {}).get("detected_vehicles", [])
     )
 
     if not isinstance(detections, list):
@@ -920,25 +920,17 @@ def draw_hud(
     # Traffic
     # --------------------------------------------------------
 
-    traffic_conf = conf(
-        traffic_result
+    raw_traffic = traffic_result.get("raw", {})
+    vehicle_count = raw_traffic.get(
+        "vehicles_detected",
+        "?"
     )
-
-    vehicle_count = traffic_result.get(
-        "total_vehicles",
-        traffic_result.get(
-            "vehicle_count",
-            traffic_result.get(
-                "count",
-                "?"
-            )
-        )
-    )
+    density = raw_traffic.get("density_pct", 0)
 
     traffic_line = (
         f"Traffic Vehicles: "
         f"{vehicle_count} | "
-        f"Detector: {traffic_conf:.0f}%"
+        f"Density: {density}%"
     )
 
     cv2.putText(
@@ -1463,6 +1455,9 @@ def generate_mjpeg_stream(
                     traffic_result,
                     "traffic"
                 )
+                
+                # Save to state for frontend polling
+                state["latest_traffic"] = traffic_result
 
                 inference_ms = (
                     time.perf_counter()
@@ -1757,6 +1752,26 @@ async def stop_dashcam_stream(
     return {
         "status": "stopped",
         "job_id": job_id
+    }
+
+
+# ============================================================
+# LIVE DASHCAM STATUS
+# ============================================================
+
+@router.get("/status/{job_id}")
+async def get_dashcam_status(job_id: str):
+    """Return the latest traffic and incident data for the frontend."""
+    if job_id not in _active_streams:
+        raise HTTPException(status_code=404, detail="Stream not found")
+        
+    state = _stream_states.get(job_id, {})
+    latest_traffic = state.get("latest_traffic")
+    
+    return {
+        "job_id": job_id,
+        "active": _active_streams[job_id],
+        "vehicle_summary": latest_traffic.get("raw") if latest_traffic else None
     }
 
 

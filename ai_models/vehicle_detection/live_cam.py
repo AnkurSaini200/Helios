@@ -11,7 +11,7 @@ import requests
 from ultralytics import YOLO
 
 # ======================= CONFIGURATION =======================
-DEFAULT_PHONE_IP = "10.2.43.57"
+DEFAULT_PHONE_IP = "10.2.5.75"
 DEFAULT_PHONE_PORT = "8080"
 DEFAULT_URL = f"http://{DEFAULT_PHONE_IP}:{DEFAULT_PHONE_PORT}/video"
 TARGET_FPS = 4.0

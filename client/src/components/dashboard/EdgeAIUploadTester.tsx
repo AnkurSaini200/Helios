@@ -131,7 +131,7 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
   const [selectedBusId, setSelectedBusId] = useState<string>("");
 
   // ── Live Dashcam Pipeline State ──
-  const [dashcamUrl, setDashcamUrl] = useState("http://10.2.43.57:8080/video");
+  const [dashcamUrl, setDashcamUrl] = useState("http://10.2.5.75:8080/video");
   const [isDashcamActive, setIsDashcamActive] = useState(false);
   const [dashcamJobId, setDashcamJobId] = useState<string | null>(null);
 
@@ -219,10 +219,10 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
     selectedModel === "accident"
       ? accidentResult
       : selectedModel === "pothole"
-      ? potholeResult
-      : selectedModel === "waterlogging"
-      ? waterlogResult
-      : trafficResult;
+        ? potholeResult
+        : selectedModel === "waterlogging"
+          ? waterlogResult
+          : trafficResult;
 
   const currentImageUrl = currentResult?.image_url || previewUrl;
 
@@ -350,11 +350,10 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                 setSelectedModel(model.id);
                 setErrorMsg(null);
               }}
-              className={`px-3 py-2 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 border cursor-pointer ${
-                isSelected
+              className={`px-3 py-2 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 border cursor-pointer ${isSelected
                   ? model.activeColor
                   : "bg-helios-850/60 text-slate-400 border-transparent hover:text-slate-200 hover:bg-helios-850"
-              }`}
+                }`}
             >
               <Icon className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{model.name}</span>
@@ -370,11 +369,10 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`relative border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${
-              previewUrl
+            className={`relative border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${previewUrl
                 ? "border-solar-500/50 bg-helios-900/60"
                 : "border-slate-700/80 hover:border-solar-500/60 bg-helios-850/60 hover:bg-helios-850"
-            }`}
+              }`}
           >
             <input
               ref={fileInputRef}
@@ -430,11 +428,10 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
               <button
                 type="button"
                 onClick={() => setBoostDecel(!boostDecel)}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-colors cursor-pointer ${
-                  boostDecel
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-colors cursor-pointer ${boostDecel
                     ? "bg-solar-500 text-helios-950"
                     : "bg-slate-800 text-slate-400 border border-slate-700"
-                }`}
+                  }`}
               >
                 {boostDecel ? "ACTIVE" : "OFF"}
               </button>
@@ -496,13 +493,12 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
           <button
             onClick={handleRunInference}
             disabled={!selectedFile || isUploading}
-            className={`w-full py-2.5 px-4 rounded-xl font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              !selectedFile
+            className={`w-full py-2.5 px-4 rounded-xl font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${!selectedFile
                 ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                 : isUploading
-                ? "bg-solar-500/50 text-helios-950 cursor-wait"
-                : "bg-gradient-to-r from-solar-500 via-amber-400 to-solar-500 hover:from-solar-400 hover:to-solar-500 text-helios-950 shadow-glow-solar"
-            }`}
+                  ? "bg-solar-500/50 text-helios-950 cursor-wait"
+                  : "bg-gradient-to-r from-solar-500 via-amber-400 to-solar-500 hover:from-solar-400 hover:to-solar-500 text-helios-950 shadow-glow-solar"
+              }`}
           >
             {isUploading ? (
               <>
@@ -533,17 +529,15 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
               {selectedModel === "accident" && accidentResult && (
                 <>
                   <div
-                    className={`flex flex-wrap items-center justify-between gap-2 p-3.5 rounded-xl font-mono border transition-all ${
-                      accidentResult.detected
+                    className={`flex flex-wrap items-center justify-between gap-2 p-3.5 rounded-xl font-mono border transition-all ${accidentResult.detected
                         ? "bg-red-950/40 border-red-500/50 shadow-glow-emergency"
                         : "bg-helios-850 border-slate-800"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-3 h-3 rounded-full ${
-                          accidentResult.detected ? "bg-red-500 animate-ping" : "bg-emerald-400"
-                        }`}
+                        className={`w-3 h-3 rounded-full ${accidentResult.detected ? "bg-red-500 animate-ping" : "bg-emerald-400"
+                          }`}
                       />
                       <span className={`text-xs font-bold ${accidentResult.detected ? "text-red-200" : "text-white"}`}>
                         {accidentResult.detected ? "ACCIDENT DETECTED!" : "NO ACCIDENT DETECTED"}
@@ -600,11 +594,10 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                           return (
                             <span
                               key={idx}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] border font-bold flex items-center gap-1.5 ${
-                                box.is_crash || accidentResult.detected
+                              className={`px-2.5 py-1 rounded-lg text-[11px] border font-bold flex items-center gap-1.5 ${box.is_crash || accidentResult.detected
                                   ? "bg-red-500/20 text-red-200 border-red-500/40"
                                   : "bg-slate-800 text-slate-300 border-slate-700"
-                              }`}
+                                }`}
                             >
                               <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
                               <span>{cleanName}:</span>
@@ -651,9 +644,8 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                   <div className="flex flex-wrap items-center justify-between gap-2 p-3.5 rounded-xl bg-helios-850 border border-slate-800 font-mono">
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-3 h-3 rounded-full ${
-                          potholeResult.detected ? "bg-amber-400 animate-pulse" : "bg-emerald-400"
-                        }`}
+                        className={`w-3 h-3 rounded-full ${potholeResult.detected ? "bg-amber-400 animate-pulse" : "bg-emerald-400"
+                          }`}
                       />
                       <span className="text-xs font-bold text-white">
                         {potholeResult.detected
@@ -725,9 +717,8 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                   <div className="flex flex-wrap items-center justify-between gap-2 p-3.5 rounded-xl bg-helios-850 border border-slate-800 font-mono">
                     <div className="flex items-center gap-2">
                       <div
-                        className={`w-3 h-3 rounded-full ${
-                          waterlogResult.detected ? "bg-emerald-400 animate-pulse" : "bg-emerald-400"
-                        }`}
+                        className={`w-3 h-3 rounded-full ${waterlogResult.detected ? "bg-emerald-400 animate-pulse" : "bg-emerald-400"
+                          }`}
                       />
                       <span className="text-xs font-bold text-white">
                         {waterlogResult.detected
@@ -787,13 +778,12 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                         </div>
                         <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1.5 overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              waterlogResult.water_hazard_score > 60
+                            className={`h-full rounded-full transition-all duration-500 ${waterlogResult.water_hazard_score > 60
                                 ? "bg-red-500"
                                 : waterlogResult.water_hazard_score > 30
-                                ? "bg-amber-500"
-                                : "bg-emerald-500"
-                            }`}
+                                  ? "bg-amber-500"
+                                  : "bg-emerald-500"
+                              }`}
                             style={{ width: `${Math.min(100, waterlogResult.water_hazard_score)}%` }}
                           />
                         </div>
@@ -882,13 +872,12 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                       </div>
                       <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            trafficResult.density_pct > 75
+                          className={`h-full rounded-full transition-all duration-500 ${trafficResult.density_pct > 75
                               ? "bg-red-500"
                               : trafficResult.density_pct > 45
-                              ? "bg-amber-500"
-                              : "bg-emerald-500"
-                          }`}
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                            }`}
                           style={{ width: `${Math.min(100, trafficResult.density_pct)}%` }}
                         />
                       </div>
@@ -952,11 +941,10 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleVideoDrop}
               onClick={() => videoInputRef.current?.click()}
-              className={`relative border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${
-                videoPreviewName
+              className={`relative border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${videoPreviewName
                   ? "border-violet-500/50 bg-helios-900/60"
                   : "border-slate-700/80 hover:border-violet-500/60 bg-helios-850/60 hover:bg-helios-850"
-              }`}
+                }`}
             >
               <input
                 ref={videoInputRef}
@@ -1049,13 +1037,12 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
             <button
               onClick={handleRunVideoPipeline}
               disabled={!videoFile || isVideoUploading}
-              className={`w-full py-2.5 px-4 rounded-xl font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                !videoFile
+              className={`w-full py-2.5 px-4 rounded-xl font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${!videoFile
                   ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                   : isVideoUploading
-                  ? "bg-violet-500/50 text-white cursor-wait"
-                  : "bg-gradient-to-r from-violet-500 via-purple-400 to-violet-500 hover:from-violet-400 hover:to-violet-500 text-white shadow-lg shadow-violet-500/20"
-              }`}
+                    ? "bg-violet-500/50 text-white cursor-wait"
+                    : "bg-gradient-to-r from-violet-500 via-purple-400 to-violet-500 hover:from-violet-400 hover:to-violet-500 text-white shadow-lg shadow-violet-500/20"
+                }`}
             >
               {isVideoUploading ? (
                 <>
@@ -1117,11 +1104,10 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                         {Object.entries(videoJob.frame_division).map(([model, count]) => (
                           <span
                             key={model}
-                            className={`px-2 py-0.5 rounded-md border ${
-                              videoJob.current_model === model
+                            className={`px-2 py-0.5 rounded-md border ${videoJob.current_model === model
                                 ? "bg-violet-500/20 border-violet-500/50 text-violet-300"
                                 : "bg-slate-800/60 border-slate-700 text-slate-500"
-                            }`}
+                              }`}
                           >
                             {model}: {count as number}f
                           </span>
@@ -1135,19 +1121,17 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                 {videoJob.status === "completed" && (
                   <>
                     {videoJob.winner ? (
-                      <div className={`p-4 rounded-xl border space-y-3 ${
-                        videoJob.winner.model === "waterlogging"
+                      <div className={`p-4 rounded-xl border space-y-3 ${videoJob.winner.model === "waterlogging"
                           ? "bg-emerald-950/40 border-emerald-500/50"
                           : videoJob.winner.model === "accident"
-                          ? "bg-red-950/40 border-red-500/50 shadow-glow-emergency"
-                          : "bg-amber-950/40 border-amber-500/50"
-                      }`}>
+                            ? "bg-red-950/40 border-red-500/50 shadow-glow-emergency"
+                            : "bg-amber-950/40 border-amber-500/50"
+                        }`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Trophy className={`w-5 h-5 ${
-                              videoJob.winner.model === "waterlogging" ? "text-emerald-400" :
-                              videoJob.winner.model === "accident" ? "text-red-400" : "text-amber-400"
-                            }`} />
+                            <Trophy className={`w-5 h-5 ${videoJob.winner.model === "waterlogging" ? "text-emerald-400" :
+                                videoJob.winner.model === "accident" ? "text-red-400" : "text-amber-400"
+                              }`} />
                             <div>
                               <div className="text-xs font-bold font-mono text-white uppercase">
                                 {getModelDisplayName(videoJob.winner.model)} — DETECTED
@@ -1161,10 +1145,9 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                             <Badge variant={videoJob.winner.severity === "critical" ? "danger" : "warning"} size="sm">
                               {videoJob.winner.severity.toUpperCase()}
                             </Badge>
-                            <span className={`text-sm font-bold font-mono ${
-                              videoJob.winner.model === "waterlogging" ? "text-emerald-400" :
-                              videoJob.winner.model === "accident" ? "text-red-400" : "text-amber-400"
-                            }`}>
+                            <span className={`text-sm font-bold font-mono ${videoJob.winner.model === "waterlogging" ? "text-emerald-400" :
+                                videoJob.winner.model === "accident" ? "text-red-400" : "text-amber-400"
+                              }`}>
                               {Math.round(videoJob.winner.confidence * 100)}%
                             </span>
                           </div>
@@ -1177,13 +1160,12 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                               alt={`${videoJob.winner.model} Detection`}
                               className="w-full h-full object-contain"
                             />
-                            <div className={`absolute top-2 left-2 backdrop-blur-md px-2.5 py-1 rounded text-[10px] font-mono border flex items-center gap-1.5 ${
-                              videoJob.winner.model === "waterlogging"
+                            <div className={`absolute top-2 left-2 backdrop-blur-md px-2.5 py-1 rounded text-[10px] font-mono border flex items-center gap-1.5 ${videoJob.winner.model === "waterlogging"
                                 ? "bg-emerald-950/80 text-emerald-400 border-emerald-500/30"
                                 : videoJob.winner.model === "accident"
-                                ? "bg-red-950/80 text-red-400 border-red-500/30"
-                                : "bg-amber-950/80 text-amber-400 border-amber-500/30"
-                            }`}>
+                                  ? "bg-red-950/80 text-red-400 border-red-500/30"
+                                  : "bg-amber-950/80 text-amber-400 border-amber-500/30"
+                              }`}>
                               <Trophy className="w-3 h-3" />
                               Priority Winner Frame
                             </div>
@@ -1281,13 +1263,12 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                           </div>
                           <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                videoJob.vehicle_summary.avg_density_pct > 75
+                              className={`h-full rounded-full transition-all duration-500 ${videoJob.vehicle_summary.avg_density_pct > 75
                                   ? "bg-red-500"
                                   : videoJob.vehicle_summary.avg_density_pct > 45
-                                  ? "bg-amber-500"
-                                  : "bg-emerald-500"
-                              }`}
+                                    ? "bg-amber-500"
+                                    : "bg-emerald-500"
+                                }`}
                               style={{ width: `${Math.min(100, videoJob.vehicle_summary.avg_density_pct)}%` }}
                             />
                           </div>
@@ -1404,11 +1385,10 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
 
               <button
                 onClick={() => setIsDashcamActive(!isDashcamActive)}
-                className={`w-full py-3 rounded-xl font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg ${
-                  isDashcamActive
+                className={`w-full py-3 rounded-xl font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg ${isDashcamActive
                     ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
                     : "bg-solar-500 hover:bg-solar-400 text-helios-950 shadow-solar-500/20"
-                }`}
+                  }`}
               >
                 {isDashcamActive ? (
                   <>Stop Live Dashcam</>
