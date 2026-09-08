@@ -7,12 +7,15 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+# pyrefly: ignore [missing-import]
 import cv2
+# pyrefly: ignore [missing-import]
 import numpy as np
+# pyrefly: ignore [missing-import]
 from ultralytics import YOLO
 
 # ======================= CONFIGURATION =======================
-PHONE_IP = "10.1.83.49"
+PHONE_IP = "10.2.43.57"
 PHONE_PORT = "8080"
 STREAM_URL = f"http://{PHONE_IP}:{PHONE_PORT}/video"
 SENSORS_URL = f"http://{PHONE_IP}:{PHONE_PORT}/sensors.json"

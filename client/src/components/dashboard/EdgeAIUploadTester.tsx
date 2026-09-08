@@ -130,6 +130,11 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
   const [buses, setBuses] = useState<Bus[]>([]);
   const [selectedBusId, setSelectedBusId] = useState<string>("");
 
+  // ── Live Dashcam Pipeline State ──
+  const [dashcamUrl, setDashcamUrl] = useState("http://10.2.43.57:8080/video");
+  const [isDashcamActive, setIsDashcamActive] = useState(false);
+  const [dashcamJobId, setDashcamJobId] = useState<string | null>(null);
+
   useEffect(() => {
     fetchBuses().then(setBuses).catch(console.error);
   }, []);
@@ -1343,6 +1348,114 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                 </div>
               </div>
             )}
+          </div>
+        </div>
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/*  LIVE DASHCAM PIPELINE (IP CAMERA)                           */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <div className="mt-8 border-t border-slate-800/80 pt-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-bold font-mono text-white flex items-center gap-2">
+                <Video className="w-4 h-4 text-solar-400" />
+                Live Dashcam Pipeline (IP Stream)
+              </h3>
+              <p className="text-[11px] text-slate-500 font-sans mt-1">
+                Connect directly to an IP Camera (e.g. Android IP Webcam) for continuous real-time analysis using the 4-Model Cascade. Detections will automatically pop up on the Live Map globally!
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded border border-solar-500/30 bg-solar-500/10 text-solar-400 text-[10px] font-bold font-mono uppercase">
+                Continuous Stream
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold font-mono text-slate-400 uppercase">IP Camera Stream URL</label>
+                <input
+                  type="text"
+                  value={dashcamUrl}
+                  onChange={(e) => setDashcamUrl(e.target.value)}
+                  disabled={isDashcamActive}
+                  placeholder="http://192.168.1.100:8080/video"
+                  className="w-full bg-helios-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 font-mono focus:border-solar-500 focus:outline-none transition-colors disabled:opacity-50"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold font-mono text-slate-400 uppercase">Simulate From Bus (GPS Context)</label>
+                <select
+                  value={selectedBusId}
+                  onChange={(e) => setSelectedBusId(e.target.value)}
+                  disabled={isDashcamActive}
+                  className="w-full bg-helios-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 font-mono focus:border-solar-500 focus:outline-none transition-colors disabled:opacity-50"
+                >
+                  <option value="">Default (BUS-HYD-VID)</option>
+                  {buses.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.id} - {b.route}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={() => setIsDashcamActive(!isDashcamActive)}
+                className={`w-full py-3 rounded-xl font-bold font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg ${
+                  isDashcamActive
+                    ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
+                    : "bg-solar-500 hover:bg-solar-400 text-helios-950 shadow-solar-500/20"
+                }`}
+              >
+                {isDashcamActive ? (
+                  <>Stop Live Dashcam</>
+                ) : (
+                  <>
+                    <Video className="w-4 h-4" /> Connect & Stream
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="lg:col-span-2">
+              {isDashcamActive ? (
+                <div className="relative rounded-2xl border-2 border-solar-500/50 bg-black overflow-hidden shadow-2xl shadow-solar-500/10 min-h-[300px] flex items-center justify-center">
+                  <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-red-500/30">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-[10px] font-bold font-mono text-red-400 uppercase">Live Pipeline Active</span>
+                  </div>
+                  {/* MJPEG Stream directly from FastAPI */}
+                  <img
+                    src={`http://localhost:8000/api/v1/dashcam/stream?url=${encodeURIComponent(dashcamUrl)}&bus_id=${selectedBusId || "BUS-HYD-VID"}`}
+                    alt="Live Dashcam Stream"
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      // Fallback if stream fails
+                      e.currentTarget.style.display = 'none';
+                      setIsDashcamActive(false);
+                      alert("Failed to connect to IP Camera stream. Is the URL correct and accessible?");
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="h-full min-h-[300px] rounded-2xl border border-slate-800/80 bg-helios-900/40 flex flex-col items-center justify-center p-8 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-solar-500/10 border border-solar-500/20 text-solar-400 flex items-center justify-center">
+                    <Video className="w-6 h-6" />
+                  </div>
+                  <div className="max-w-sm space-y-1">
+                    <h4 className="text-xs font-bold font-mono text-slate-300 uppercase">
+                      Dashcam Disconnected
+                    </h4>
+                    <p className="text-[11px] text-slate-500 font-sans">
+                      Enter an IP Camera MJPEG stream URL to begin real-time analysis. The 4-Model Cascade will process frames live and push verified incidents directly to the global database.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
