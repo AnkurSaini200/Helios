@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   UploadCloud,
   Cpu,
@@ -38,8 +39,8 @@ import {
   TrafficUploadResponse,
   VideoJobStatus,
 } from "../../services/incidents";
-import { Incident } from "../../types";
-
+import { Incident, Bus } from "../../types";
+import { fetchBuses } from "../../services/buses";
 type ModelMode = "accident" | "pothole" | "waterlogging" | "traffic";
 
 interface ModelMeta {
@@ -101,6 +102,7 @@ interface EdgeAIUploadTesterProps {
 }
 
 export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDossier }) => {
+  const navigate = useNavigate();
   const [selectedModel, setSelectedModel] = useState<ModelMode>("accident");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -123,6 +125,14 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
   const [videoError, setVideoError] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Bus Selection State
+  const [buses, setBuses] = useState<Bus[]>([]);
+  const [selectedBusId, setSelectedBusId] = useState<string>("");
+
+  useEffect(() => {
+    fetchBuses().then(setBuses).catch(console.error);
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -240,7 +250,7 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
       setVideoError(null);
       setVideoJob(null);
 
-      const { job_id } = await uploadVideo(videoFile);
+      const { job_id } = await uploadVideo(videoFile, selectedBusId || undefined);
 
       // Start SSE stream
       if (eventSourceRef.current) eventSourceRef.current.close();
@@ -1007,6 +1017,29 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
               </div>
             </div>
 
+            {/* Bus Selector */}
+            <div className="flex flex-col gap-2 pt-2 pb-2">
+              <label className="text-xs font-mono text-slate-400 uppercase">Simulate from Bus (For GPS Context)</label>
+              <div className="relative group">
+                <select
+                  className="w-full appearance-none bg-helios-850 border border-slate-700 text-white text-sm rounded-xl pl-3 pr-8 py-2.5 focus:outline-none focus:border-indigo-500 hover:border-slate-500 cursor-pointer transition-colors"
+                  value={selectedBusId}
+                  onChange={(e) => setSelectedBusId(e.target.value)}
+                  disabled={isVideoUploading}
+                >
+                  <option value="">Default (BUS-HYD-VID)</option>
+                  {buses.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.id} ({b.route})
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 group-hover:text-white">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
+            </div>
+
             {/* Run Pipeline Button */}
             <button
               onClick={handleRunVideoPipeline}
@@ -1149,6 +1182,25 @@ export const EdgeAIUploadTester: React.FC<EdgeAIUploadTesterProps> = ({ onOpenDo
                               <Trophy className="w-3 h-3" />
                               Priority Winner Frame
                             </div>
+                          </div>
+                        )}
+
+                        {/* GPS Coordinates and Map Link */}
+                        {videoJob.winner?.gps && (
+                          <div className="grid grid-cols-2 gap-3 font-mono text-xs mt-3">
+                            <div className="p-2 rounded-lg bg-helios-900 border border-slate-800 flex flex-col justify-center">
+                              <div className="text-[10px] text-slate-400">GPS Coordinates</div>
+                              <div className="text-sm font-bold text-white">
+                                {videoJob.winner?.gps?.lat.toFixed(4)}, {videoJob.winner?.gps?.lng.toFixed(4)}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => navigate(`/map?lat=${videoJob.winner?.gps?.lat}&lng=${videoJob.winner?.gps?.lng}&highlight=${videoJob.winner?.incident_id || videoJob.job_id}`)}
+                              className="p-2 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-500/50 flex items-center justify-center gap-2 transition-colors cursor-pointer text-indigo-300 font-bold"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              View on Live Map
+                            </button>
                           </div>
                         )}
 
